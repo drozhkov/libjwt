@@ -23,7 +23,7 @@ void *jwt_malloc(size_t size)
 {
 	if (pfn_malloc)
 		return pfn_malloc(size);
-	
+
 	return malloc(size);
 }
 
@@ -31,7 +31,7 @@ void *jwt_realloc(void* ptr, size_t size)
 {
 	if (pfn_realloc)
 		return pfn_realloc(ptr, size);
-	
+
 	return realloc(ptr, size);
 }
 
@@ -1017,7 +1017,7 @@ static int jwt_encode(jwt_t *jwt, char **out)
 		return ret;
 	}
 
-	head = alloca(strlen(buf) * 2);
+	head = jwt_malloc(strlen(buf) * 2);
 	if (head == NULL) {
 		jwt_freemem(buf);
 		return ENOMEM;
@@ -1033,12 +1033,16 @@ static int jwt_encode(jwt_t *jwt, char **out)
 	if (ret) {
 		if (buf)
 			jwt_freemem(buf);
+
+		jwt_freemem(head);
+
 		return ret;
 	}
 
-	body = alloca(strlen(buf) * 2);
+	body = jwt_malloc(strlen(buf) * 2);
 	if (body == NULL) {
 		jwt_freemem(buf);
+		jwt_freemem(head);
 		return ENOMEM;
 	}
 	jwt_Base64encode(body, buf, (int)strlen(buf));
@@ -1052,11 +1056,18 @@ static int jwt_encode(jwt_t *jwt, char **out)
 
 	/* Allocate enough to reuse as b64 buffer. */
 	buf = jwt_malloc(head_len + body_len + 2);
-	if (buf == NULL)
+	if (buf == NULL) {
+		jwt_freemem(body);
+		jwt_freemem(head);
 		return ENOMEM;
+	}
+
 	strcpy(buf, head);
 	strcat(buf, ".");
 	strcat(buf, body);
+
+	jwt_freemem(body);
+	jwt_freemem(head);
 
 	ret = __append_str(out, buf);
 	if (ret == 0)
